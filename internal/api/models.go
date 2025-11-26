@@ -96,10 +96,10 @@ type MetricSnapshot struct {
 	CPUUsagePercent float64 `json:"cpu_usage_percent"`
 
 	// Memory metrics (bytes)
-	MemoryTotal          uint64  `json:"memory_total"`
-	MemoryUsed           uint64  `json:"memory_used"`
-	MemoryAvailable      uint64  `json:"memory_available"`
-	MemoryUsagePercent   float64 `json:"memory_usage_percent"`
+	MemoryTotal        uint64  `json:"memory_total"`
+	MemoryUsed         uint64  `json:"memory_used"`
+	MemoryAvailable    uint64  `json:"memory_available"`
+	MemoryUsagePercent float64 `json:"memory_usage_percent"`
 
 	// Disk metrics (bytes)
 	DiskTotalBytes   uint64  `json:"disk_total_bytes"`

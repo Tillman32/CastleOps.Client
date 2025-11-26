@@ -12,7 +12,7 @@ import (
 // networkCollector gathers network usage metrics
 // Tracks cumulative bytes sent/received and calculates rates over time
 type networkCollector struct {
-	buffer           *metricsBuffer
+	buffer            *metricsBuffer
 	lastBytesReceived uint64
 	lastBytesSent     uint64
 	initialized       bool
@@ -250,9 +250,9 @@ type Address struct {
 // NetworkRateMonitor calculates network transfer rates
 // Tracks bytes/sec and packets/sec by diffing cumulative counters
 type NetworkRateMonitor struct {
-	lastStats    map[string]net.IOCountersStat
+	lastStats      map[string]net.IOCountersStat
 	lastSampleTime int64 // Unix timestamp in nanoseconds
-	mu           sync.RWMutex
+	mu             sync.RWMutex
 }
 
 // NewNetworkRateMonitor creates a new network rate monitor
@@ -292,15 +292,15 @@ func (m *NetworkRateMonitor) Update(ctx context.Context) (map[string]*NetworkRat
 		}
 
 		rates[current.Name] = &NetworkRates{
-			Name:            current.Name,
-			BytesRecvDelta:  safeDelta(current.BytesRecv, last.BytesRecv),
-			BytesSentDelta:  safeDelta(current.BytesSent, last.BytesSent),
+			Name:             current.Name,
+			BytesRecvDelta:   safeDelta(current.BytesRecv, last.BytesRecv),
+			BytesSentDelta:   safeDelta(current.BytesSent, last.BytesSent),
 			PacketsRecvDelta: safeDelta(current.PacketsRecv, last.PacketsRecv),
 			PacketsSentDelta: safeDelta(current.PacketsSent, last.PacketsSent),
-			ErrorsInDelta:   safeDelta(current.Errin, last.Errin),
-			ErrorsOutDelta:  safeDelta(current.Errout, last.Errout),
-			DropsInDelta:    safeDelta(current.Dropin, last.Dropin),
-			DropsOutDelta:   safeDelta(current.Dropout, last.Dropout),
+			ErrorsInDelta:    safeDelta(current.Errin, last.Errin),
+			ErrorsOutDelta:   safeDelta(current.Errout, last.Errout),
+			DropsInDelta:     safeDelta(current.Dropin, last.Dropin),
+			DropsOutDelta:    safeDelta(current.Dropout, last.Dropout),
 		}
 	}
 

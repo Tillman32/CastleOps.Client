@@ -22,10 +22,10 @@ type System struct {
 	clientID   string
 
 	// State management
-	running    atomic.Bool
-	stopCh     chan struct{}
-	stoppedCh  chan struct{}
-	wg         sync.WaitGroup
+	running   atomic.Bool
+	stopCh    chan struct{}
+	stoppedCh chan struct{}
+	wg        sync.WaitGroup
 
 	// Collectors (initialized based on config)
 	cpuCollector     *cpuCollector
@@ -425,10 +425,10 @@ func (s *System) Stats() SystemStats {
 	defer s.mu.RUnlock()
 
 	return SystemStats{
-		Running:         s.running.Load(),
-		CollectorCount:  len(s.collectors),
+		Running:            s.running.Load(),
+		CollectorCount:     len(s.collectors),
 		CollectionInterval: s.config.CollectionInterval,
-		MovingAvgWindow: s.config.MovingAverageWindow,
+		MovingAvgWindow:    s.config.MovingAverageWindow,
 	}
 }
 

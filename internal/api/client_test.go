@@ -236,9 +236,9 @@ func TestIsRetryable(t *testing.T) {
 	defer client.Close()
 
 	tests := []struct {
-		name    string
-		err     error
-		want    bool
+		name string
+		err  error
+		want bool
 	}{
 		{
 			name: "retryable API error - 503",
@@ -533,11 +533,11 @@ func TestContextCancellation(t *testing.T) {
 // TestErrorHandling verifies error response parsing
 func TestErrorHandling(t *testing.T) {
 	tests := []struct {
-		name           string
-		statusCode     int
-		responseBody   interface{}
-		expectedError  string
-		expectedCode   string
+		name          string
+		statusCode    int
+		responseBody  interface{}
+		expectedError string
+		expectedCode  string
 	}{
 		{
 			name:       "structured error response",
