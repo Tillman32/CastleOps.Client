@@ -256,6 +256,9 @@ func TestStoreMetricsRetention(t *testing.T) {
 	_ = cache.StoreMetrics(ctx, oldMetric)
 	_ = cache.StoreMetrics(ctx, recentMetric)
 
+	// Manually trigger cleanup (since periodic cleanup won't run immediately)
+	cache.Cleanup()
+
 	// Only recent metric should remain after retention cleanup
 	if len(cache.metrics) != 1 {
 		t.Errorf("Expected 1 metric after retention cleanup, got %d", len(cache.metrics))
@@ -413,4 +416,79 @@ func TestConcurrentAccess(t *testing.T) {
 func TestCacheImplementsInterface(t *testing.T) {
 	// Compile-time check that MemoryCache implements Cache interface
 	var _ Cache = (*MemoryCache)(nil)
+}
+
+func TestPeriodicCleanupDoesNotRunImmediately(t *testing.T) {
+	cache := NewMemoryCache(MemoryConfig{
+		RetentionDays: 1,
+		Logger:        testLogger(),
+	})
+	ctx := context.Background()
+
+	// Add old metric (2 days ago)
+	oldMetric := &Metrics{
+		Timestamp: time.Now().UTC().AddDate(0, 0, -2),
+		ClientID:  "test-client",
+	}
+
+	_ = cache.StoreMetrics(ctx, oldMetric)
+
+	// Old metric should still be there because cleanup interval hasn't passed
+	if len(cache.metrics) != 1 {
+		t.Errorf("Expected old metric to still be present, got %d metrics", len(cache.metrics))
+	}
+}
+
+func TestManualCleanup(t *testing.T) {
+	cache := NewMemoryCache(MemoryConfig{
+		RetentionDays: 1,
+		Logger:        testLogger(),
+	})
+	ctx := context.Background()
+
+	// Add old metric (2 days ago)
+	oldMetric := &Metrics{
+		Timestamp: time.Now().UTC().AddDate(0, 0, -2),
+		ClientID:  "test-client",
+	}
+
+	// Add recent metric
+	recentMetric := &Metrics{
+		Timestamp: time.Now().UTC(),
+		ClientID:  "test-client",
+	}
+
+	_ = cache.StoreMetrics(ctx, oldMetric)
+	_ = cache.StoreMetrics(ctx, recentMetric)
+
+	// Both metrics should be present before cleanup
+	if len(cache.metrics) != 2 {
+		t.Errorf("Expected 2 metrics before cleanup, got %d", len(cache.metrics))
+	}
+
+	// Manually trigger cleanup
+	cache.Cleanup()
+
+	// Only recent metric should remain
+	if len(cache.metrics) != 1 {
+		t.Errorf("Expected 1 metric after cleanup, got %d", len(cache.metrics))
+	}
+}
+
+func TestCleanupUpdatesLastCleanupTime(t *testing.T) {
+	cache := NewMemoryCache(MemoryConfig{
+		RetentionDays: 7,
+		Logger:        testLogger(),
+	})
+
+	initialCleanup := cache.lastCleanup
+
+	// Wait a tiny bit to ensure time difference
+	time.Sleep(time.Millisecond)
+
+	cache.Cleanup()
+
+	if !cache.lastCleanup.After(initialCleanup) {
+		t.Error("Expected lastCleanup to be updated after Cleanup()")
+	}
 }

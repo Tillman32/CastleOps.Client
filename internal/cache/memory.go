@@ -8,6 +8,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// cleanupInterval defines how often retention cleanup should run
+const cleanupInterval = time.Hour
+
 // MemoryCache is an in-memory implementation of the Cache interface
 // Useful for testing and simple deployments
 type MemoryCache struct {
@@ -16,6 +19,7 @@ type MemoryCache struct {
 	metrics       []*Metrics
 	retentionDays int
 	logger        zerolog.Logger
+	lastCleanup   time.Time
 }
 
 // NewMemoryCache creates a new in-memory cache
@@ -28,6 +32,7 @@ func NewMemoryCache(config MemoryConfig) *MemoryCache {
 		metrics:       make([]*Metrics, 0),
 		retentionDays: config.RetentionDays,
 		logger:        config.Logger,
+		lastCleanup:   time.Now(),
 	}
 }
 
@@ -73,7 +78,18 @@ func (m *MemoryCache) StoreMetrics(ctx context.Context, metrics *Metrics) error 
 
 	m.metrics = append(m.metrics, metrics)
 
-	// Cleanup old metrics beyond retention period
+	// Only run cleanup periodically to avoid performance bottleneck
+	if time.Since(m.lastCleanup) > cleanupInterval {
+		m.cleanupOldMetrics()
+		m.lastCleanup = time.Now()
+	}
+
+	return nil
+}
+
+// cleanupOldMetrics removes metrics beyond the retention period
+// Must be called with mu lock held
+func (m *MemoryCache) cleanupOldMetrics() {
 	cutoff := time.Now().UTC().AddDate(0, 0, -m.retentionDays)
 	var retained []*Metrics
 	for _, metric := range m.metrics {
@@ -82,8 +98,6 @@ func (m *MemoryCache) StoreMetrics(ctx context.Context, metrics *Metrics) error 
 		}
 	}
 	m.metrics = retained
-
-	return nil
 }
 
 // GetMetrics retrieves metrics within the specified time range
@@ -104,4 +118,13 @@ func (m *MemoryCache) GetMetrics(ctx context.Context, start, end time.Time) ([]*
 // Close releases resources (no-op for memory cache)
 func (m *MemoryCache) Close() error {
 	return nil
+}
+
+// Cleanup performs manual cleanup of old metrics beyond the retention period.
+// This can be called on-demand instead of waiting for the periodic cleanup.
+func (m *MemoryCache) Cleanup() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cleanupOldMetrics()
+	m.lastCleanup = time.Now()
 }
