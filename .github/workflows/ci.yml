@@ -118,6 +118,6 @@ jobs:
       - name: Upload pre-release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}
+          name: castleops-client-linux-amd64-dev
           path: dist/castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz
           retention-days: 14
