@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/castleops/client/internal/api"
 	"github.com/castleops/client/internal/cache"
 	"github.com/castleops/client/internal/config"
 	"github.com/rs/zerolog"
