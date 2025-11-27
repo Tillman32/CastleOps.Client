@@ -93,7 +93,7 @@ func (m *MemoryCache) cleanupOldMetrics() {
 	cutoff := time.Now().UTC().AddDate(0, 0, -m.retentionDays)
 	var retained []*Metrics
 	for _, metric := range m.metrics {
-		if metric.Timestamp.After(cutoff) {
+		if !metric.Timestamp.Before(cutoff) {
 			retained = append(retained, metric)
 		}
 	}
