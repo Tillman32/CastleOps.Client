@@ -63,8 +63,8 @@ jobs:
           path: coverage.out
           retention-days: 7
 
-  pre-release:
-    name: Create Pre-release Artifacts
+  pre-release-linux:
+    name: Build Linux
     runs-on: ubuntu-latest
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -110,38 +110,200 @@ jobs:
             -o dist/linux-amd64/castleops-client \
             ./cmd/castleops-client
 
-      - name: Create pre-release archive
+      - name: Create archive
         run: |
           cd dist
-          tar -czvf castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz linux-amd64/
+          tar -czvf castleops-client-linux-amd64.tar.gz linux-amd64/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleops-client-linux-amd64
+          path: dist/castleops-client-linux-amd64.tar.gz
+          retention-days: 14
+
+  pre-release-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Build macOS amd64
+        env:
+          CGO_ENABLED: 1
+          GOOS: darwin
+          GOARCH: amd64
+        run: |
+          mkdir -p dist/darwin-amd64
+          go build -trimpath \
+            -ldflags "-s -w -X 'main.appVersion=${{ steps.version.outputs.version }}' -X 'main.buildTime=${{ steps.version.outputs.build_time }}' -X 'main.gitCommit=${{ steps.version.outputs.short_sha }}'" \
+            -o dist/darwin-amd64/castleops-client \
+            ./cmd/castleops-client
+
+      - name: Build macOS arm64
+        env:
+          CGO_ENABLED: 1
+          GOOS: darwin
+          GOARCH: arm64
+        run: |
+          mkdir -p dist/darwin-arm64
+          go build -trimpath \
+            -ldflags "-s -w -X 'main.appVersion=${{ steps.version.outputs.version }}' -X 'main.buildTime=${{ steps.version.outputs.build_time }}' -X 'main.gitCommit=${{ steps.version.outputs.short_sha }}'" \
+            -o dist/darwin-arm64/castleops-client \
+            ./cmd/castleops-client
+
+      - name: Create archives
+        run: |
+          cd dist
+          tar -czvf castleops-client-darwin-amd64.tar.gz darwin-amd64/
+          tar -czvf castleops-client-darwin-arm64.tar.gz darwin-arm64/
+
+      - name: Upload amd64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleops-client-darwin-amd64
+          path: dist/castleops-client-darwin-amd64.tar.gz
+          retention-days: 14
+
+      - name: Upload arm64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleops-client-darwin-arm64
+          path: dist/castleops-client-darwin-arm64.tar.gz
+          retention-days: 14
+
+  pre-release-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Get version info
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Build Windows amd64
+        env:
+          CGO_ENABLED: 1
+          GOOS: windows
+          GOARCH: amd64
+        shell: bash
+        run: |
+          mkdir -p dist/windows-amd64
+          go build -trimpath \
+            -ldflags "-s -w -X 'main.appVersion=${{ steps.version.outputs.version }}' -X 'main.buildTime=${{ steps.version.outputs.build_time }}' -X 'main.gitCommit=${{ steps.version.outputs.short_sha }}'" \
+            -o dist/windows-amd64/castleops-client.exe \
+            ./cmd/castleops-client
+
+      - name: Create archive
+        run: Compress-Archive -Path dist/windows-amd64 -DestinationPath dist/castleops-client-windows-amd64.zip
+        shell: powershell
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleops-client-windows-amd64
+          path: dist/castleops-client-windows-amd64.zip
+          retention-days: 14
+
+  create-release:
+    name: Create Latest Release
+    runs-on: ubuntu-latest
+    needs: [pre-release-linux, pre-release-macos, pre-release-windows]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version info
+        id: version
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: castleops-client-*
+          merge-multiple: true
 
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.tar.gz > checksums.txt
+          sha256sum *.tar.gz *.zip > checksums.txt
 
-      - name: Upload pre-release artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: castleops-client-linux-amd64-dev
-          path: dist/castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz
-          retention-days: 14
-
-      - name: Create Pre-release
+      - name: Create Latest Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: dev-${{ steps.version.outputs.short_sha }}
-          name: Development Build ${{ steps.version.outputs.short_sha }}
+          tag_name: latest
+          name: Latest Development Build
           draft: false
           prerelease: true
           generate_release_notes: false
+          make_latest: false
           body: |
-            Development build from main branch.
+            Latest development build from main branch.
             
             **Commit:** ${{ github.sha }}
             **Build Time:** ${{ steps.version.outputs.build_time }}
+            
+            ## Available Builds
+            - Linux (amd64)
+            - macOS (amd64, arm64)
+            - Windows (amd64)
           files: |
             dist/*.tar.gz
+            dist/*.zip
             dist/checksums.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
