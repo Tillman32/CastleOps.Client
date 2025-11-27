@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -431,14 +432,16 @@ func TestRetryLogic(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		count := attempts.Add(1)
+		w.Header().Set("Content-Type", "application/json")
 		if count < 3 {
 			// Fail first two attempts
 			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Service unavailable"})
 			return
 		}
 		// Succeed on third attempt
+		w.WriteHeader(http.StatusOK)
 		resp := HeartbeatResponse{Acknowledged: true}
-		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	})
 
@@ -448,7 +451,7 @@ func TestRetryLogic(t *testing.T) {
 	client, err := NewClient(ClientConfig{
 		BaseURL: server.URL,
 		RetryConfig: &RetryConfig{
-			MaxRetries:     3,
+			MaxRetries:     2,
 			InitialBackoff: 10 * time.Millisecond,
 			MaxBackoff:     100 * time.Millisecond,
 		},
@@ -472,7 +475,7 @@ func TestRetryLogic(t *testing.T) {
 	elapsed := time.Since(start)
 
 	if err != nil {
-		t.Fatalf("Heartbeat() error = %v", err)
+		t.Fatalf("Heartbeat() error = %v, attempts = %d", err, attempts.Load())
 	}
 	if !resp.Acknowledged {
 		t.Error("Heartbeat not acknowledged")
@@ -590,8 +593,9 @@ func TestErrorHandling(t *testing.T) {
 				t.Fatal("Expected error, got nil")
 			}
 
-			apiErr, ok := err.(*APIError)
-			if !ok {
+			// Try to unwrap to find APIError
+			var apiErr *APIError
+			if !errors.As(err, &apiErr) {
 				t.Fatalf("Expected APIError, got %T", err)
 			}
 

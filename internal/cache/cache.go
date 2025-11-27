@@ -11,13 +11,17 @@ import (
 
 // Command status constants
 const (
-	StatusPending  = "pending"
-	StatusComplete = "complete"
-	StatusFailed   = "failed"
+	StatusPending   = "pending"
+	StatusComplete  = "complete"
+	StatusCompleted = "completed"
+	StatusFailed    = "failed"
 )
 
 // Command represents a cached command for persistence
 type Command struct {
+	// ID is the database primary key (auto-generated)
+	ID int64
+
 	// CommandID is the unique identifier for the command
 	CommandID string
 
@@ -30,15 +34,21 @@ type Command struct {
 	// Status is the current command status
 	Status string
 
+	// Result contains the execution result or error message
+	Result string
+
 	// CreatedAt is when the command was received
 	CreatedAt time.Time
 
 	// CompletedAt is when the command finished execution
-	CompletedAt *time.Time
+	CompletedAt time.Time
 }
 
 // Metrics represents collected system metrics for caching
 type Metrics struct {
+	// ID is the database primary key (auto-generated)
+	ID int64
+
 	// Timestamp is when the metrics were collected
 	Timestamp time.Time
 

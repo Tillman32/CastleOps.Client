@@ -14,7 +14,7 @@ import (
 
 const (
 	// AgentVersion is the current version of the client software
-	AgentVersion = "0.1.0"
+	AgentVersion = "0.2.0"
 
 	// maxRegistrationRetries is the maximum number of registration attempts
 	maxRegistrationRetries = 5

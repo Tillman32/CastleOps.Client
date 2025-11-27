@@ -20,6 +20,7 @@ type MemoryCache struct {
 	retentionDays int
 	logger        zerolog.Logger
 	lastCleanup   time.Time
+	nextID        int64 // Auto-increment ID counter
 }
 
 // NewMemoryCache creates a new in-memory cache
@@ -40,6 +41,11 @@ func NewMemoryCache(config MemoryConfig) *MemoryCache {
 func (m *MemoryCache) StoreCommand(ctx context.Context, cmd *Command) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// Assign auto-increment ID if not already set
+	if cmd.ID == 0 {
+		m.nextID++
+		cmd.ID = m.nextID
+	}
 	m.commands[cmd.CommandID] = cmd
 	return nil
 }
@@ -55,6 +61,16 @@ func (m *MemoryCache) GetPendingCommands(ctx context.Context) ([]*Command, error
 			pending = append(pending, cmd)
 		}
 	}
+
+	// Sort by creation time (ascending)
+	for i := 0; i < len(pending)-1; i++ {
+		for j := i + 1; j < len(pending); j++ {
+			if pending[j].CreatedAt.Before(pending[i].CreatedAt) {
+				pending[i], pending[j] = pending[j], pending[i]
+			}
+		}
+	}
+
 	return pending, nil
 }
 
@@ -65,8 +81,7 @@ func (m *MemoryCache) MarkCommandComplete(ctx context.Context, commandID string)
 
 	if cmd, exists := m.commands[commandID]; exists {
 		cmd.Status = StatusComplete
-		now := time.Now().UTC()
-		cmd.CompletedAt = &now
+		cmd.CompletedAt = time.Now().UTC()
 	}
 	return nil
 }
@@ -75,6 +90,12 @@ func (m *MemoryCache) MarkCommandComplete(ctx context.Context, commandID string)
 func (m *MemoryCache) StoreMetrics(ctx context.Context, metrics *Metrics) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	// Assign auto-increment ID if not already set
+	if metrics.ID == 0 {
+		m.nextID++
+		metrics.ID = m.nextID
+	}
 
 	m.metrics = append(m.metrics, metrics)
 

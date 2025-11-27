@@ -133,7 +133,22 @@ func NewClient(config ClientConfig) (*Client, error) {
 
 	retryConfig := DefaultRetryConfig()
 	if config.RetryConfig != nil {
-		retryConfig = *config.RetryConfig
+		// Merge provided config with defaults
+		if config.RetryConfig.MaxRetries > 0 {
+			retryConfig.MaxRetries = config.RetryConfig.MaxRetries
+		}
+		if config.RetryConfig.InitialBackoff > 0 {
+			retryConfig.InitialBackoff = config.RetryConfig.InitialBackoff
+		}
+		if config.RetryConfig.MaxBackoff > 0 {
+			retryConfig.MaxBackoff = config.RetryConfig.MaxBackoff
+		}
+		if config.RetryConfig.BackoffMultiplier > 0 {
+			retryConfig.BackoffMultiplier = config.RetryConfig.BackoffMultiplier
+		}
+		if config.RetryConfig.RetryableStatusCodes != nil {
+			retryConfig.RetryableStatusCodes = config.RetryConfig.RetryableStatusCodes
+		}
 	}
 
 	// Create optimized transport with HTTP/2 support
