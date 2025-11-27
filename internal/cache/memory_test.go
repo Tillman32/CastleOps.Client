@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -381,7 +382,7 @@ func TestConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 
 			cmd := &Command{
-				CommandID: string(rune('A'+id%26)) + string(rune(id)),
+				CommandID: fmt.Sprintf("cmd-%d", id),
 				Status:    StatusPending,
 			}
 			_ = cache.StoreCommand(ctx, cmd)
