@@ -159,14 +159,7 @@ func New(config *Config) (Service, error) {
 // IsElevated checks if the current process has elevated privileges.
 // Returns true if running as root/administrator, false otherwise.
 func IsElevated() bool {
-	switch runtime.GOOS {
-	case "darwin", "linux":
-		return isElevatedUnix()
-	case "windows":
-		return isElevatedWindows()
-	default:
-		return false
-	}
+	return isElevated()
 }
 
 // RequireElevated returns an error if the process doesn't have elevated privileges
