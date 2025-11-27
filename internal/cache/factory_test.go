@@ -1,6 +1,8 @@
 package cache
 
 import (
+	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +66,7 @@ func TestNew(t *testing.T) {
 					t.Error("Expected error but got nil")
 					return
 				}
-				if tt.errContains != "" && err.Error() != tt.errContains {
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
 					t.Errorf("Expected error containing '%s', got '%s'", tt.errContains, err.Error())
 				}
 				if cache != nil {
@@ -139,7 +141,7 @@ func TestNewCacheIsFunctional(t *testing.T) {
 	}
 
 	// Test basic functionality
-	ctx := t.Context()
+	ctx := context.Background()
 
 	// Test command operations
 	cmd := &Command{
