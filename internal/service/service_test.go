@@ -232,10 +232,10 @@ func TestServiceConfiguration(t *testing.T) {
 // TestPlatformSpecificCreation tests that the correct platform implementation is used
 func TestPlatformSpecificCreation(t *testing.T) {
 	cfg := &Config{
-		Name:       "test-service",
+		Name:        "test-service",
 		DisplayName: "Test Service",
-		Executable: "/usr/bin/test",
-		Logger:     testLogger(),
+		Executable:  "/usr/bin/test",
+		Logger:      testLogger(),
 	}
 
 	svc, err := New(cfg)
@@ -311,10 +311,10 @@ func TestServiceArguments(t *testing.T) {
 // TestNewServiceCreatesCorrectType tests type assertion for platform-specific services
 func TestNewServiceCreatesCorrectType(t *testing.T) {
 	cfg := &Config{
-		Name:       "type-test-service",
+		Name:        "type-test-service",
 		DisplayName: "Type Test Service",
-		Executable: "/usr/bin/test",
-		Logger:     testLogger(),
+		Executable:  "/usr/bin/test",
+		Logger:      testLogger(),
 	}
 
 	svc, err := New(cfg)
@@ -338,10 +338,10 @@ func TestNewServiceCreatesCorrectType(t *testing.T) {
 // BenchmarkNewService benchmarks service creation
 func BenchmarkNewService(b *testing.B) {
 	cfg := &Config{
-		Name:       "bench-service",
+		Name:        "bench-service",
 		DisplayName: "Benchmark Service",
-		Executable: "/usr/bin/test",
-		Logger:     testLogger(),
+		Executable:  "/usr/bin/test",
+		Logger:      testLogger(),
 	}
 
 	b.ReportAllocs()

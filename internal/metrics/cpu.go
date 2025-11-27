@@ -147,15 +147,15 @@ func GetCPUInfo(ctx context.Context) (*CPUInfo, error) {
 	}
 
 	return &CPUInfo{
-		ModelName:     info[0].ModelName,
-		Family:        info[0].Family,
-		Model:         info[0].Model,
-		Stepping:      info[0].Stepping,
-		Cores:         int32(physicalCount),
-		LogicalCores:  int32(logicalCount),
-		MHz:           info[0].Mhz,
-		CacheSize:     info[0].CacheSize,
-		VendorID:      info[0].VendorID,
+		ModelName:    info[0].ModelName,
+		Family:       info[0].Family,
+		Model:        info[0].Model,
+		Stepping:     info[0].Stepping,
+		Cores:        int32(physicalCount),
+		LogicalCores: int32(logicalCount),
+		MHz:          info[0].Mhz,
+		CacheSize:    info[0].CacheSize,
+		VendorID:     info[0].VendorID,
 	}, nil
 }
 

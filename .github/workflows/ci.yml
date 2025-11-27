@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run go fmt check
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Go code is not formatted:"
+            gofmt -d .
+            exit 1
+          fi
+
+      - name: Build
+        run: make build
+
+      - name: Run tests
+        run: CGO_ENABLED=1 go test -race -v -coverprofile=coverage.out ./...
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
+          retention-days: 7
+
+  pre-release:
+    name: Create Pre-release Artifacts
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.4'
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc
+
+      - name: Download Go dependencies
+        run: go mod download
+
+      - name: Get version info
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Build Linux amd64
+        env:
+          CGO_ENABLED: 1
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          mkdir -p dist/linux-amd64
+          go build -trimpath \
+            -ldflags "-s -w -X 'main.appVersion=${{ steps.version.outputs.version }}' -X 'main.buildTime=${{ steps.version.outputs.build_time }}' -X 'main.gitCommit=${{ steps.version.outputs.short_sha }}'" \
+            -o dist/linux-amd64/castleops-client \
+            ./cmd/castleops-client
+
+      - name: Create pre-release archive
+        run: |
+          cd dist
+          tar -czvf castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz linux-amd64/
+
+      - name: Upload pre-release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: castleops-client-linux-amd64-dev
+          path: dist/castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz
+          retention-days: 14

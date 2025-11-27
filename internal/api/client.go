@@ -96,10 +96,10 @@ type ClientConfig struct {
 // DefaultRetryConfig returns sensible retry defaults
 func DefaultRetryConfig() RetryConfig {
 	return RetryConfig{
-		MaxRetries:         3,
-		InitialBackoff:     100 * time.Millisecond,
-		MaxBackoff:         30 * time.Second,
-		BackoffMultiplier:  2.0,
+		MaxRetries:        3,
+		InitialBackoff:    100 * time.Millisecond,
+		MaxBackoff:        30 * time.Second,
+		BackoffMultiplier: 2.0,
 		RetryableStatusCodes: map[int]bool{
 			408: true, // Request Timeout
 			429: true, // Too Many Requests

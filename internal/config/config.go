@@ -15,12 +15,12 @@ import (
 // Config represents the complete application configuration
 // All fields are designed to minimize allocations during access
 type Config struct {
-	Server         ServerConfig         `mapstructure:"server"`
-	Client         ClientConfig         `mapstructure:"client"`
-	Heartbeat      HeartbeatConfig      `mapstructure:"heartbeat"`
-	Metrics        MetricsConfig        `mapstructure:"metrics"`
-	Cache          CacheConfig          `mapstructure:"cache"`
-	Logging        LoggingConfig        `mapstructure:"logging"`
+	Server          ServerConfig          `mapstructure:"server"`
+	Client          ClientConfig          `mapstructure:"client"`
+	Heartbeat       HeartbeatConfig       `mapstructure:"heartbeat"`
+	Metrics         MetricsConfig         `mapstructure:"metrics"`
+	Cache           CacheConfig           `mapstructure:"cache"`
+	Logging         LoggingConfig         `mapstructure:"logging"`
 	PackageManagers PackageManagersConfig `mapstructure:"package_managers"`
 
 	// Internal fields for efficient access
