@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -115,9 +115,33 @@ jobs:
           cd dist
           tar -czvf castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz linux-amd64/
 
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+
       - name: Upload pre-release artifact
         uses: actions/upload-artifact@v4
         with:
           name: castleops-client-linux-amd64-dev
           path: dist/castleops-client-linux-amd64-${{ steps.version.outputs.short_sha }}.tar.gz
           retention-days: 14
+
+      - name: Create Pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-${{ steps.version.outputs.short_sha }}
+          name: Development Build ${{ steps.version.outputs.short_sha }}
+          draft: false
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Development build from main branch.
+            
+            **Commit:** ${{ github.sha }}
+            **Build Time:** ${{ steps.version.outputs.build_time }}
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
