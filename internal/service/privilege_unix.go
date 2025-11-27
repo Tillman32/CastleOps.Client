@@ -10,3 +10,8 @@ import (
 func isElevatedUnix() bool {
 	return os.Geteuid() == 0
 }
+
+// isElevated is the platform-specific implementation for Unix-like systems
+func isElevated() bool {
+	return isElevatedUnix()
+}

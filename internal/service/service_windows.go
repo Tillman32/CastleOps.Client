@@ -8,12 +8,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/eventlog"
 	"golang.org/x/sys/windows/svc/mgr"
@@ -37,7 +35,7 @@ type windowsService struct {
 
 // newWindowsService creates a new Windows service instance
 func newWindowsService(config *Config) (Service, error) {
-	svc := &windowsService{
+	ws := &windowsService{
 		config:      config,
 		logger:      config.Logger.With().Str("service", "windows").Logger(),
 		serviceName: config.Name,
@@ -46,10 +44,10 @@ func newWindowsService(config *Config) (Service, error) {
 	// Try to open event log (may not exist if not installed)
 	elog, err := eventlog.Open(config.Name)
 	if err == nil {
-		svc.eventLog = elog
+		ws.eventLog = elog
 	}
 
-	return svc, nil
+	return ws, nil
 }
 
 // Install installs the Windows service
@@ -64,9 +62,9 @@ func (s *windowsService) Install() error {
 	defer m.Disconnect()
 
 	// Check if service already exists
-	svc, err := m.OpenService(s.serviceName)
+	winSvc, err := m.OpenService(s.serviceName)
 	if err == nil {
-		svc.Close()
+		winSvc.Close()
 		return fmt.Errorf("service %s already exists", s.serviceName)
 	}
 
@@ -90,11 +88,11 @@ func (s *windowsService) Install() error {
 	}
 
 	// Create the service
-	svc, err = m.CreateService(s.serviceName, exePath, serviceConfig, args...)
+	winSvc, err = m.CreateService(s.serviceName, exePath, serviceConfig, args...)
 	if err != nil {
 		return fmt.Errorf("failed to create service: %w", err)
 	}
-	defer svc.Close()
+	defer winSvc.Close()
 
 	// Configure service recovery actions (restart on failure)
 	recoveryActions := []mgr.RecoveryAction{
@@ -103,7 +101,7 @@ func (s *windowsService) Install() error {
 		{Type: mgr.ServiceRestart, Delay: 60 * time.Second},
 	}
 
-	if err := svc.SetRecoveryActions(recoveryActions, 86400); err != nil {
+	if err := winSvc.SetRecoveryActions(recoveryActions, 86400); err != nil {
 		s.logger.Warn().Err(err).Msg("Failed to set recovery actions")
 		// Not fatal, continue
 	}
@@ -130,17 +128,17 @@ func (s *windowsService) Uninstall() error {
 	defer m.Disconnect()
 
 	// Open the service
-	svc, err := m.OpenService(s.serviceName)
+	winSvc, err := m.OpenService(s.serviceName)
 	if err != nil {
 		return fmt.Errorf("service %s not found", s.serviceName)
 	}
-	defer svc.Close()
+	defer winSvc.Close()
 
 	// Try to stop the service first (ignore errors)
-	_ = s.stopService(svc)
+	_ = s.stopService(winSvc)
 
 	// Delete the service
-	if err := svc.Delete(); err != nil {
+	if err := winSvc.Delete(); err != nil {
 		return fmt.Errorf("failed to delete service: %w", err)
 	}
 
@@ -166,14 +164,14 @@ func (s *windowsService) Start() error {
 	defer m.Disconnect()
 
 	// Open the service
-	svc, err := m.OpenService(s.serviceName)
+	winSvc, err := m.OpenService(s.serviceName)
 	if err != nil {
 		return fmt.Errorf("service %s not found", s.serviceName)
 	}
-	defer svc.Close()
+	defer winSvc.Close()
 
 	// Check current status
-	status, err := svc.Query()
+	status, err := winSvc.Query()
 	if err != nil {
 		return fmt.Errorf("failed to query service status: %w", err)
 	}
@@ -184,14 +182,14 @@ func (s *windowsService) Start() error {
 	}
 
 	// Start the service
-	if err := svc.Start(); err != nil {
+	if err := winSvc.Start(); err != nil {
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
 	// Wait for service to start
 	timeout := time.Now().Add(serviceStartTimeout)
 	for {
-		status, err := svc.Query()
+		status, err := winSvc.Query()
 		if err != nil {
 			return fmt.Errorf("failed to query service status: %w", err)
 		}
@@ -221,19 +219,19 @@ func (s *windowsService) Stop() error {
 	defer m.Disconnect()
 
 	// Open the service
-	svc, err := m.OpenService(s.serviceName)
+	winSvc, err := m.OpenService(s.serviceName)
 	if err != nil {
 		return fmt.Errorf("service %s not found", s.serviceName)
 	}
-	defer svc.Close()
+	defer winSvc.Close()
 
-	return s.stopService(svc)
+	return s.stopService(winSvc)
 }
 
 // stopService stops the service (internal helper)
-func (s *windowsService) stopService(svc *mgr.Service) error {
+func (s *windowsService) stopService(winSvc *mgr.Service) error {
 	// Check current status
-	status, err := svc.Query()
+	status, err := winSvc.Query()
 	if err != nil {
 		return fmt.Errorf("failed to query service status: %w", err)
 	}
@@ -244,7 +242,7 @@ func (s *windowsService) stopService(svc *mgr.Service) error {
 	}
 
 	// Send stop control
-	status, err = svc.Control(svc.Stop)
+	status, err = winSvc.Control(svc.Stop)
 	if err != nil {
 		return fmt.Errorf("failed to stop service: %w", err)
 	}
@@ -252,7 +250,7 @@ func (s *windowsService) stopService(svc *mgr.Service) error {
 	// Wait for service to stop
 	timeout := time.Now().Add(serviceStopTimeout)
 	for {
-		status, err := svc.Query()
+		status, err := winSvc.Query()
 		if err != nil {
 			return fmt.Errorf("failed to query service status: %w", err)
 		}
@@ -296,14 +294,14 @@ func (s *windowsService) Status() (Status, error) {
 	defer m.Disconnect()
 
 	// Open the service
-	svc, err := m.OpenService(s.serviceName)
+	winSvc, err := m.OpenService(s.serviceName)
 	if err != nil {
 		return StatusNotInstalled, nil
 	}
-	defer svc.Close()
+	defer winSvc.Close()
 
 	// Query service status
-	status, err := svc.Query()
+	status, err := winSvc.Query()
 	if err != nil {
 		return StatusUnknown, fmt.Errorf("failed to query service status: %w", err)
 	}
@@ -408,7 +406,7 @@ func (h *serviceHandler) Execute(args []string, r <-chan svc.ChangeRequest, s ch
 				s <- c.CurrentStatus
 
 			case svc.Stop, svc.Shutdown:
-				h.logger.Info().Str("command", c.Cmd.String()).Msg("Received stop command")
+				h.logger.Info().Uint32("command", uint32(c.Cmd)).Msg("Received stop command")
 				if h.elog != nil {
 					h.elog.Info(1, "Service stopping")
 				}
@@ -438,7 +436,7 @@ func (h *serviceHandler) Execute(args []string, r <-chan svc.ChangeRequest, s ch
 				return false, 0
 
 			default:
-				h.logger.Warn().Str("command", c.Cmd.String()).Msg("Unexpected control request")
+				h.logger.Warn().Uint32("command", uint32(c.Cmd)).Msg("Unexpected control request")
 				if h.elog != nil {
 					h.elog.Warning(1, fmt.Sprintf("Unexpected control request: %d", c.Cmd))
 				}
