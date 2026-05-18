@@ -163,6 +163,9 @@ const (
 
 	// CommandExecuteScript runs a custom script
 	CommandExecuteScript CommandType = "execute_script"
+
+	// CommandRunPeon downloads and executes a Peon script from a GitHub repository
+	CommandRunPeon CommandType = "run_peon"
 )
 
 // InstallPackagePayload contains parameters for package installation
@@ -240,6 +243,21 @@ type ExecuteScriptPayload struct {
 	WorkingDirectory string `json:"working_directory,omitempty"`
 
 	// Environment contains environment variables to set
+	Environment map[string]string `json:"environment,omitempty"`
+}
+
+// RunPeonPayload contains parameters for executing a Peon script from a GitHub repo
+type RunPeonPayload struct {
+	// URL is the GitHub repository URL (e.g. https://github.com/MorphStack/peon-ping)
+	URL string `json:"url"`
+
+	// Entry is the script entrypoint path within the repository
+	Entry string `json:"entry"`
+
+	// Type specifies the script interpreter (powershell, python, bash)
+	Type string `json:"type"`
+
+	// Environment contains per-device environment variables to inject
 	Environment map[string]string `json:"environment,omitempty"`
 }
 

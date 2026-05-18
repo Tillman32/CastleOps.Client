@@ -376,9 +376,6 @@ func parseCommandPayload(payload interface{}, target interface{}) error {
 	return nil
 }
 
-// Example executor registration helper functions
-// These would typically be called during initialization
-
 // InstallPackageExecutor creates an executor for package installation
 func InstallPackageExecutor(installFunc func(ctx context.Context, payload *InstallPackagePayload) (string, error)) CommandExecutor {
 	return func(ctx context.Context, payload interface{}) (*CommandResult, error) {
@@ -508,6 +505,30 @@ func ExecuteScriptExecutor(execFunc func(ctx context.Context, payload *ExecuteSc
 		}
 
 		output, err := execFunc(ctx, &p)
+		if err != nil {
+			return &CommandResult{
+				Status: CommandStatusFailed,
+				Output: output,
+				Error:  err.Error(),
+			}, nil
+		}
+
+		return &CommandResult{
+			Status: CommandStatusSuccess,
+			Output: output,
+		}, nil
+	}
+}
+
+// RunPeonExecutor creates an executor for running peon scripts from GitHub repositories
+func RunPeonExecutor(runFunc func(ctx context.Context, payload *RunPeonPayload) (string, error)) CommandExecutor {
+	return func(ctx context.Context, payload interface{}) (*CommandResult, error) {
+		var p RunPeonPayload
+		if err := parseCommandPayload(payload, &p); err != nil {
+			return nil, err
+		}
+
+		output, err := runFunc(ctx, &p)
 		if err != nil {
 			return &CommandResult{
 				Status: CommandStatusFailed,

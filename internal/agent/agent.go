@@ -28,6 +28,7 @@ type Agent struct {
 	metricsSystem   *metrics.System
 	heartbeatSvc    *HeartbeatService
 	registrationSvc *RegistrationService
+	commandHandler  *api.CommandHandler
 
 	// State management
 	running    atomic.Bool
@@ -212,6 +213,18 @@ func (a *Agent) initHeartbeat() error {
 	return nil
 }
 
+// initCommandHandler initializes the command handler and registers all known executors
+func (a *Agent) initCommandHandler() error {
+	a.commandHandler = api.NewCommandHandler(api.CommandHandlerConfig{
+		Client: a.apiClient,
+		Cache:  a.cache,
+		Logger: a.logger,
+	})
+	a.commandHandler.RegisterExecutor(api.CommandRunPeon, api.RunPeonExecutor(a.executePeon))
+	a.logger.Info().Msg("Command handler initialized")
+	return nil
+}
+
 // Start begins agent operation with full lifecycle management
 // This handles registration, component startup, and coordination
 func (a *Agent) Start(ctx context.Context) error {
@@ -275,6 +288,13 @@ func (a *Agent) startSubsystems(ctx context.Context) error {
 		return fmt.Errorf("failed to start heartbeat service: %w", err)
 	}
 
+	// Initialize and start command handler
+	if err := a.initCommandHandler(); err != nil {
+		a.heartbeatSvc.Stop(ctx)
+		a.metricsSystem.Stop()
+		return fmt.Errorf("failed to initialize command handler: %w", err)
+	}
+
 	// Start metrics upload worker
 	a.wg.Add(1)
 	go a.metricsUploadWorker(ctx)
@@ -311,6 +331,13 @@ func (a *Agent) Stop(ctx context.Context) error {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
+
+		// Drain in-flight commands before stopping the rest of the stack
+		if a.commandHandler != nil {
+			if err := a.commandHandler.Stop(5 * time.Second); err != nil {
+				a.logger.Error().Err(err).Msg("Failed to stop command handler")
+			}
+		}
 
 		// Stop heartbeat service
 		if a.heartbeatSvc != nil {
@@ -471,9 +498,6 @@ func (a *Agent) uploadMetrics(ctx context.Context) error {
 			return err
 		}
 
-		// Mark these metrics as synced in cache
-		// Note: This is a simplified approach - a real implementation would
-		// mark specific metrics by ID
 		a.logger.Info().
 			Int("count", len(batch)).
 			Msg("Metrics uploaded successfully")
@@ -517,7 +541,7 @@ func (a *Agent) commandPollWorker(ctx context.Context) {
 	}
 }
 
-// pollCommands retrieves and stores pending commands from the server
+// pollCommands retrieves pending commands from the server and dispatches them for execution
 func (a *Agent) pollCommands(ctx context.Context) error {
 	pollCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -531,29 +555,10 @@ func (a *Agent) pollCommands(ctx context.Context) error {
 		return nil
 	}
 
-	// Store commands in cache for execution
-	for _, cmd := range resp.Commands {
-		// Convert API command to cache command
-		// Note: Payload needs to be serialized
-		cacheCmd := &cache.Command{
-			CommandID: cmd.CommandID,
-			Type:      string(cmd.Type),
-			Status:    cache.StatusPending,
-			CreatedAt: time.Now(),
-		}
+	a.logger.Info().Int("count", resp.Count).Msg("Commands received from server")
 
-		if err := a.cache.StoreCommand(ctx, cacheCmd); err != nil {
-			a.logger.Error().
-				Err(err).
-				Str("command_id", cmd.CommandID).
-				Msg("Failed to store command")
-			continue
-		}
-
-		a.logger.Info().
-			Str("command_id", cmd.CommandID).
-			Str("type", string(cmd.Type)).
-			Msg("Command received and stored")
+	if err := a.commandHandler.HandleCommands(resp.Commands); err != nil {
+		a.logger.Error().Err(err).Msg("Failed to dispatch commands to handler")
 	}
 
 	return nil
